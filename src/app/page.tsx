@@ -1,65 +1,161 @@
-import Image from "next/image";
+'use client';
+
+import React, { useState, useEffect } from 'react';
+import { Container, Fab, Typography, Box, List, ListItem, ListItemText, ListItemSecondaryAction, IconButton, Paper } from '@mui/material';
+import { Add as AddIcon, Delete as DeleteIcon, Edit as EditIcon, Notifications as NotificationsIcon } from '@mui/icons-material';
+import { useRouter } from 'next/navigation';
+import { checkForReminders } from '@/lib/notifications';
+
+interface Note {
+  _id: string;
+  title: string;
+  description: string;
+  imageUrl?: string;
+  reminderDateTime?: Date;
+  isRecurring: boolean;
+  createdAt: Date;
+}
 
 export default function Home() {
+  const [notes, setNotes] = useState<Note[]>([]);
+  const router = useRouter();
+
+  useEffect(() => {
+    // Set up function to check reminders globally
+    (window as any).checkReminders = checkForReminders;
+
+    // Fetch notes from the API
+    const fetchNotes = async () => {
+      try {
+        const res = await fetch('/api/notes');
+        const data = await res.json();
+        // Sort notes by creation date in descending order
+        const sortedNotes = data.notes.sort((a: Note, b: Note) =>
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        );
+        setNotes(sortedNotes);
+
+        // Check for any upcoming reminders after loading notes
+        setTimeout(() => checkForReminders(), 1000);
+      } catch (error) {
+        console.error('Error fetching notes:', error);
+      }
+    };
+
+    fetchNotes();
+  }, []);
+
+  const handleAddNote = () => {
+    router.push('/add');
+  };
+
+  const handleDeleteNote = async (id: string) => {
+    try {
+      await fetch(`/api/notes/${id}`, {
+        method: 'DELETE',
+      });
+      setNotes(notes.filter(note => note._id !== id));
+    } catch (error) {
+      console.error('Error deleting note:', error);
+    }
+  };
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
+    <Container maxWidth="md" sx={{ py: 4 }}>
+      <Box sx={{ mb: 3, textAlign: 'center' }}>
+        <Typography variant="h4" component="h1" gutterBottom>
+          Notes & Reminders
+        </Typography>
+        <Typography variant="body1" color="text.secondary">
+          Keep track of your tasks and set reminders
+        </Typography>
+      </Box>
+
+      {notes.length === 0 ? (
+        <Box sx={{ textAlign: 'center', py: 8 }}>
+          <Typography variant="h6" color="text.secondary">
+            No notes yet. Add your first note to get started!
+          </Typography>
+        </Box>
+      ) : (
+        <Paper elevation={3} sx={{ borderRadius: 2, overflow: 'hidden' }}>
+          <List>
+            {notes.map((note) => (
+              <ListItem key={note._id} sx={{ py: 2, borderBottom: '1px solid #eee' }}>
+                <ListItemText
+                  primary={note.title}
+                  secondary={
+                    <React.Fragment>
+                      <Typography
+                        component="span"
+                        variant="body2"
+                        color="text.primary"
+                      >
+                        {note.description.substring(0, 100)}{note.description.length > 100 ? '...' : ''}
+                      </Typography>
+                      <br />
+                      <Typography
+                        component="span"
+                        variant="caption"
+                        color="text.secondary"
+                      >
+                        {new Date(note.createdAt).toLocaleString()}
+                      </Typography>
+                      {note.reminderDateTime && (
+                        <React.Fragment>
+                          <br />
+                          <Typography
+                            component="span"
+                            variant="caption"
+                            color="primary"
+                          >
+                            Reminder: {new Date(note.reminderDateTime).toLocaleString()}
+                            {note.isRecurring && ' (Daily)'}
+                          </Typography>
+                        </React.Fragment>
+                      )}
+                    </React.Fragment>
+                  }
+                />
+                <ListItemSecondaryAction>
+                  <IconButton
+                    edge="end"
+                    aria-label="edit"
+                    onClick={() => router.push(`/edit/${note._id}`)}
+                  >
+                    <EditIcon />
+                  </IconButton>
+                  <IconButton
+                    edge="end"
+                    aria-label="delete"
+                    onClick={() => handleDeleteNote(note._id)}
+                  >
+                    <DeleteIcon />
+                  </IconButton>
+                  {note.reminderDateTime && (
+                    <IconButton edge="end" aria-label="notification">
+                      <NotificationsIcon color="primary" />
+                    </IconButton>
+                  )}
+                </ListItemSecondaryAction>
+              </ListItem>
+            ))}
+          </List>
+        </Paper>
+      )}
+
+      <Fab
+        color="primary"
+        aria-label="add"
+        onClick={handleAddNote}
+        sx={{
+          position: 'fixed',
+          bottom: 16,
+          right: 16,
+        }}
+      >
+        <AddIcon />
+      </Fab>
+    </Container>
   );
 }
