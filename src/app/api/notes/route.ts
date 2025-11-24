@@ -2,14 +2,14 @@ import { NextRequest } from 'next/server';
 import { connectToDatabase } from '@/lib/mongodb';
 import Note from '@/models/Note';
 
-export async function GET(request: NextRequest) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{}> }) {
   try {
     await connectToDatabase();
-    
+
     const notes = await Note.find({})
       .sort({ createdAt: -1 }) // Sort by creation date in descending order
       .select('_id title description imageUrl reminderDateTime isRecurring createdAt');
-    
+
     return new Response(
       JSON.stringify({ notes }),
       { status: 200, headers: { 'Content-Type': 'application/json' } }
@@ -23,13 +23,13 @@ export async function GET(request: NextRequest) {
   }
 }
 
-export async function POST(request: NextRequest) {
+export async function POST(request: NextRequest, { params }: { params: Promise<{}> }) {
   try {
     await connectToDatabase();
-    
+
     const body = await request.json();
     const { title, description, imageUrl, reminderDateTime, isRecurring } = body;
-    
+
     const newNote = new Note({
       title,
       description,
@@ -37,9 +37,9 @@ export async function POST(request: NextRequest) {
       reminderDateTime: reminderDateTime ? new Date(reminderDateTime) : null,
       isRecurring: isRecurring || false,
     });
-    
+
     const savedNote = await newNote.save();
-    
+
     return new Response(
       JSON.stringify({ note: savedNote }),
       { status: 201, headers: { 'Content-Type': 'application/json' } }
